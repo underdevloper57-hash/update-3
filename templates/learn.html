@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- UPDATED TITLE TO VERIFY CHANGE -->
+  <title>AlphaFlow – Masterclass v2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  
+  <style>
+    /* --- THEME VARIABLES --- */
+    :root {
+      --bg: #020617; --text: #e2e8f0; --muted: #94a3b8;
+      --accent: #38bdf8; --glass: rgba(15, 23, 42, 0.95);
+      --border: rgba(148, 163, 184, 0.15);
+      --bullish: #00E396; --bearish: #FF4560; --warning: #facc15;
+    }
+    body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+    
+    /* --- ANIMATED BACKGROUND --- */
+    #bgCanvas {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1; pointer-events: none; opacity: 0.4;
+    }
+
+    /* --- NAVIGATION --- */
+    .nav-bar {
+        position: fixed; top: 0; width: 100%; padding: 1rem 2rem;
+        background: rgba(2, 6, 23, 0.9); backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border); z-index: 100;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .back-btn {
+        text-decoration: none; color: var(--muted); font-size: 0.9rem; display: flex; align-items: center; gap: 8px; transition: 0.3s; cursor: pointer;
+    }
+    .back-btn:hover { color: var(--accent); transform: translateX(-5px); }
+    
+    /* --- LAYOUT --- */
+    .container {
+        display: flex; max-width: 1600px; margin: 0 auto; position: relative; top: 60px;
+    }
+
+    /* LEFT: STICKY CHART PANEL */
+    .chart-panel {
+        width: 55%; height: calc(100vh - 60px);
+        position: sticky; top: 60px;
+        display: flex; flex-direction: column; justify-content: center; padding: 2rem;
+    }
+    
+    .chart-card {
+        background: #0b1120; border: 1px solid var(--border); border-radius: 24px;
+        padding: 20px; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7);
+        position: relative; overflow: hidden; transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    /* AI Teacher Bubble */
+    .ai-voice {
+        position: absolute; top: 20px; left: 20px; z-index: 10;
+        background: rgba(15, 23, 42, 0.85); border: 1px solid var(--accent);
+        padding: 10px 20px; border-radius: 100px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        display: flex; align-items: center; gap: 12px; backdrop-filter: blur(8px);
+        opacity: 0; transform: translateY(-10px); transition: 0.4s;
+    }
+    .ai-voice.active { opacity: 1; transform: translateY(0); }
+    .ai-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--accent); animation: pulse 2s infinite; }
+    .ai-text { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #fff; letter-spacing: 0.5px; }
+
+    /* Fundamental Data Overlay */
+    .fundamental-overlay {
+        position: absolute; top: 80px; right: 30px; z-index: 5;
+        background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px;
+        border: 1px solid var(--border); backdrop-filter: blur(5px);
+        display: none; flex-direction: column; gap: 10px; width: 180px;
+        animation: fadeIn 0.5s ease-out;
+    }
+    .fund-item { display: flex; justify-content: space-between; font-size: 0.8rem; }
+    .fund-label { color: var(--muted); }
+    .fund-val { font-weight: bold; color: #fff; }
+
+    /* RIGHT: SCROLLABLE CONTENT */
+    .content-panel {
+        width: 45%; padding: 5rem 3rem 20rem 3rem;
+    }
+    
+    .step {
+        min-height: 100vh; /* Full height for pacing */
+        display: flex; flex-direction: column; justify-content: center;
+        opacity: 0.2; transition: opacity 0.6s, transform 0.6s;
+        transform: scale(0.98); padding: 20px 0;
+    }
+    .step.active { opacity: 1; transform: scale(1); }
+    
+    .step-card {
+        background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border);
+        padding: 2.5rem; border-radius: 24px; backdrop-filter: blur(12px);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        border-left: 4px solid transparent; transition: 0.3s;
+    }
+    .step.active .step-card { border-left-color: var(--accent); background: rgba(15, 23, 42, 0.95); }
+
+    .step-number { 
+        font-size: 0.8rem; color: var(--accent); font-weight: bold; letter-spacing: 2px; margin-bottom: 10px; display: block; 
+    }
+    .step h2 { font-size: 2rem; margin-bottom: 1.5rem; color: #fff; line-height: 1.2; }
+    .step p { line-height: 1.8; color: var(--muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    
+    .concept-box {
+        background: rgba(56, 189, 248, 0.05); border-radius: 12px; padding: 16px;
+        border: 1px dashed rgba(56, 189, 248, 0.3); margin-bottom: 1.5rem;
+    }
+    .concept-title { color: #fff; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+    .concept-text { font-size: 0.9rem; color: var(--muted); }
+
+    .highlight { color: var(--accent); font-weight: bold; }
+    .g-text { color: var(--bullish); font-weight: bold; }
+    .r-text { color: var(--bearish); font-weight: bold; }
+
+    /* Force white text for chart labels */
+    .apexcharts-annotation-label text {
+        fill: #fff !important; 
+        font-weight: 700;
+        font-family: 'Inter', sans-serif;
+    }
+
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Mobile */
+    @media (max-width: 1000px) {
+        .container { flex-direction: column-reverse; }
+        .chart-panel { width: 100%; height: 45vh; position: sticky; top: 60px; z-index: 50; padding: 10px; }
+        .content-panel { width: 100%; padding: 20px; }
+        .step { min-height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LIVE DOT BACKGROUND -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- NAV -->
+  <div class="nav-bar">
+      <div class="back-btn" onclick="window.location.href='/'">← Back to Dashboard</div>
+      <div style="font-weight:bold; color:#fff;">AlphaFlow <span style="color:var(--accent)">Academy</span></div>
+      <div class="back-btn" onclick="window.location.href='/dashboard'">Live Tool →</div>
+  </div>
+
+  <div class="container">
+      
+      <!-- LEFT: SMART CHART -->
+      <div class="chart-panel">
+          <div class="chart-card" id="chartContainer">
+              <!-- AI Bubble -->
+              <div class="ai-voice" id="aiVoice">
+                  <div class="ai-dot"></div>
+                  <span class="ai-text" id="aiText">Initializing Lesson...</span>
+              </div>
+
+              <!-- Fundamental Overlay -->
+              <div class="fundamental-overlay" id="fundOverlay">
+                  <div style="font-size:0.75rem; color:var(--accent); margin-bottom:8px; font-weight:bold;">FUNDAMENTALS</div>
+                  <div class="fund-item"><span class="fund-label">Mkt Cap</span><span class="fund-val">₹6.8T</span></div>
+                  <div class="fund-item"><span class="fund-label">P/E Ratio</span><span class="fund-val">24.5</span></div>
+                  <div class="fund-item"><span class="fund-label">Div Yield</span><span class="fund-val">2.1%</span></div>
+                  <div class="fund-item"><span class="fund-label">Sector</span><span class="fund-val">IT Serv</span></div>
+              </div>
+
+              <!-- Header -->
+              <div style="display:flex; justify-content:space-between; margin-bottom:10px; padding: 0 10px; align-items:end;">
+                  <div>
+                    <div style="font-family:'JetBrains Mono', monospace; color:#fff; font-size:1.2rem;">INFY.NS</div>
+                    <div style="font-size:0.8rem; color:var(--muted);">Infosys Limited</div>
+                  </div>
+                  <div style="font-size:0.8rem; color:var(--accent);">Daily Interval</div>
+              </div>
+              
+              <!-- Chart -->
+              <div id="learnChart"></div>
+          </div>
+      </div>
+
+      <!-- RIGHT: COURSE CONTENT -->
+      <div class="content-panel">
+          
+          <!-- 1. INTRO -->
+          <div class="step active" data-step="1">
+              <div class="step-card">
+                  <span class="step-number">MODULE 1</span>
+                  <h2>The Raw Data</h2>
+                  <p>Welcome to the live data feed of <b>Infosys (INFY)</b>. This isn't just a line; it's a digital battlefield between buyers and sellers.</p>
+                  <p>Let's decode the hidden language of the market.</p>
+              </div>
+          </div>
+
+          <!-- 2. FUNDAMENTALS -->
+          <div class="step" data-step="2">
+              <div class="step-card">
+                  <span class="step-number">MODULE 2</span>
+                  <h2>Fundamental Analysis</h2>
+                  <div class="concept-box">
+                      <div class="concept-title">💡 WHAT IS IT?</div>
+                      <div class="concept-text">The study of a company's real-world health (Profit, Revenue).</div>
+                  </div>
+                  <p>Look at the overlay on the chart. P/E Ratio (24.5) tells us if the stock is "Expensive" or "Cheap".</p>
+              </div>
+          </div>
+
+          <!-- 3. CANDLESTICKS (PRICE ANATOMY) -->
+          <div class="step" data-step="3">
+              <div class="step-card">
+                  <span class="step-number">MODULE 3</span>
+                  <h2>Price Anatomy</h2>
+                  <p>I've zoomed into a <b>Green Candle</b>. It represents one day.</p>
+                  <div class="concept-box">
+                      <div class="concept-title">📈 OPEN vs CLOSE</div>
+                      <div class="concept-text">
+                          <b>Open:</b> Price at 9:15 AM (Bottom).<br>
+                          <b>Close:</b> Price at 3:30 PM (Top).
+                      </div>
+                  </div>
+                  <p>If Close > Open, the candle is <span class="g-text">Green (Bullish)</span>.</p>
+              </div>
+          </div>
+
+          <!-- 4. GAP ANALYSIS -->
+          <div class="step" data-step="4">
+              <div class="step-card">
+                  <span class="step-number">MODULE 4</span>
+                  <h2>The "Gap Up"</h2>
+                  <p>Notice the empty space? This is a <b>Gap</b>.</p>
+                  <p>It happens when news breaks overnight. The stock opens much higher than it closed yesterday. Gaps often act as strong support.</p>
+              </div>
+          </div>
+
+          <!-- 5. CHART PATTERNS -->
+          <div class="step" data-step="5">
+              <div class="step-card">
+                  <span class="step-number">MODULE 5</span>
+                  <h2>Chart Patterns</h2>
+                  <p>Prices form shapes. I've highlighted a <b>"Bull Flag"</b>.</p>
+                  <p>1. <b>Pole:</b> Sharp rise.<br>
+                  2. <b>Flag:</b> Sideways rest.<br>
+                  This means the stock is resting before the next jump.</p>
+              </div>
+          </div>
+
+          <!-- 6. INDICATORS -->
+          <div class="step" data-step="6">
+              <div class="step-card">
+                  <span class="step-number">MODULE 6</span>
+                  <h2>Indicators</h2>
+                  <p>Indicators use math to see the future. I've turned on <b>Bollinger Bands</b> (Blue area).</p>
+                  <p>They show volatility. When price hits the lower band, it's like stretching a rubber band—it often snaps back up.</p>
+              </div>
+          </div>
+
+          <!-- 7. TRENDS -->
+          <div class="step" data-step="7">
+              <div class="step-card">
+                  <span class="step-number">MODULE 7</span>
+                  <h2>Trend Lines</h2>
+                  <p>Prices move in waves. I've drawn a <span class="highlight">Support Line</span> connecting the lows.</p>
+                  <p>Think of this as a floor. As long as price is above this line, the trend is <b>UP</b>.</p>
+              </div>
+          </div>
+
+          <!-- 8. THE RETEST -->
+          <div class="step" data-step="8">
+              <div class="step-card">
+                  <span class="step-number">MODULE 8</span>
+                  <h2>The "Retest"</h2>
+                  <p>When Resistance (Roof) breaks, it becomes Support (Floor).</p>
+                  <p>Notice how price came back down to touch the old roof, then bounced? This is the safest place to enter.</p>
+              </div>
+          </div>
+
+          <!-- 9. RISK -->
+          <div class="step" data-step="9">
+              <div class="step-card">
+                  <span class="step-number">MODULE 9</span>
+                  <h2>Stop Loss</h2>
+                  <p>Never trade without a shield.</p>
+                  <p>We place a <span class="r-text">STOP LOSS</span> below the support line. If price crashes below this, we sell automatically to save money.</p>
+              </div>
+          </div>
+
+          <!-- 10. AI VERDICT -->
+          <div class="step" data-step="10">
+              <div class="step-card" style="border-color:var(--accent); background: rgba(56, 189, 248, 0.1);">
+                  <span class="step-number" style="color:#fff;">FINAL ANALYSIS</span>
+                  <h2>AI Verdict</h2>
+                  <p>Neural Network confirms:
+                  <br>✓ Trend: Uptrend
+                  <br>✓ Pattern: Bull Flag Breakout
+                  <br>✓ Indicator: Lower Band Bounce</p>
+                  
+                  <div style="background:#00E396; color:#000; padding:15px; border-radius:8px; font-weight:bold; text-align:center; margin-top:20px;">
+                      PREDICTION: TARGET ₹1,720 🚀
+                  </div>
+                  
+                  <button style="width:100%; padding:15px; background:#fff; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px;" onclick="window.location.href='/dashboard'">
+                      Go to Live Dashboard
+                  </button>
+              </div>
+          </div>
+          
+          <div style="height:10vh;"></div>
+      </div>
+  </div>
+
+  <script>
+    /* --- 1. LIVE DOT BACKGROUND (IIFE FIX) --- */
+    (function() {
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let w, h, ticks = 0;
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function drawBg() {
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.15)'; // Dot color
+            
+            for(let x=0; x<w; x+=30) {
+                for(let y=0; y<h; y+=30) {
+                    const size = Math.sin((x * 0.01) + (y * 0.01) + (ticks * 0.02)) * 1.5 + 1.5;
+                    if(size > 0) {
+                        ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            }
+            ticks++;
+            requestAnimationFrame(drawBg);
+        }
+        drawBg();
+    })();
+
+    /* --- 2. DATA GENERATION --- */
+    const generateData = () => {
+        let data = [];
+        let price = 1400;
+        let date = new Date('2024-01-01').getTime();
+        
+        for(let i=0; i<85; i++) {
+            let move = (Math.random() * 20 - 5); 
+            if(i === 20) price += 30; // Gap
+            if(i > 40 && i < 50) move = (Math.random() * 8 - 10); // Flag
+            if(i === 65) price = 1560; // Retest
+            
+            let open = price;
+            let close = price + move;
+            let high = Math.max(open, close) + Math.random() * 10;
+            let low = Math.min(open, close) - Math.random() * 10;
+            
+            data.push({ x: date, y: [open, high, low, close] });
+            price = close;
+            date += 86400000;
+        }
+        return data;
+    };
+    const infyData = generateData();
+    const upperBand = infyData.map(d => ({ x: d.x, y: d.y[1] + 60 }));
+    const lowerBand = infyData.map(d => ({ x: d.x, y: d.y[2] - 40 }));
+
+    /* --- 3. CHART --- */
+    var options = {
+      series: [
+          { name: 'Price', type: 'candlestick', data: infyData },
+          { name: 'Upper BB', type: 'line', data: [] },
+          { name: 'Lower BB', type: 'line', data: [] }
+      ],
+      chart: { id: 'infy-chart', height: 550, background: 'transparent', toolbar: { show: false }, animations: { enabled: true, speed: 800 } },
+      theme: { mode: 'dark' },
+      stroke: { width: [1, 1, 1], curve: 'smooth' },
+      colors: ['#00E396', '#38bdf8', '#38bdf8'],
+      grid: { borderColor: 'rgba(255,255,255,0.05)' },
+      xaxis: { type: 'datetime', tooltip: { enabled: false }, axisBorder: {show:false} },
+      yaxis: { tooltip: { enabled: true } },
+      plotOptions: { 
+          candlestick: { colors: { upward: '#00E396', downward: '#FF4560' }, wick: { useFillColor: true } } 
+      }
+    };
+    var chart = new ApexCharts(document.querySelector("#learnChart"), options);
+    chart.render();
+
+    /* --- 4. SCROLL OBSERVER --- */
+    const steps = document.querySelectorAll('.step');
+    const aiVoice = document.getElementById('aiVoice');
+    const aiText = document.getElementById('aiText');
+    const chartCard = document.getElementById('chartContainer');
+    const fundOverlay = document.getElementById('fundOverlay');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                steps.forEach(s => s.classList.remove('active'));
+                entry.target.classList.add('active');
+                updateScene(entry.target.dataset.step);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    steps.forEach(step => observer.observe(step));
+
+    function updateScene(step) {
+        aiVoice.classList.remove('active'); setTimeout(() => aiVoice.classList.add('active'), 100);
+        chartCard.style.transform = "scale(1)";
+        fundOverlay.style.display = 'none';
+        
+        chart.updateOptions({ annotations: { xaxis: [], yaxis: [], points: [] } });
+        if(step !== '5' && step !== '8') {
+            chart.updateSeries([{name:'Price', data:infyData}, {name:'Upper BB', data:[]}, {name:'Lower BB', data:[]}]);
+        }
+
+        switch(step) {
+            case '1': 
+                aiText.innerText = "Loading Historical Data...";
+                chart.zoomX(infyData[0].x, infyData[84].x);
+                break;
+            case '2': 
+                aiText.innerText = "Analyzing Fundamentals...";
+                fundOverlay.style.display = 'flex';
+                chartCard.style.transform = "scale(0.98)";
+                break;
+            case '3': 
+                aiText.innerText = "Detecting Candle...";
+                chart.zoomX(infyData[18].x, infyData[22].x);
+                chartCard.style.transform = "scale(1.05)";
+                break;
+            case '4': 
+                aiText.innerText = "Detecting Gap...";
+                chart.zoomX(infyData[15].x, infyData[25].x);
+                chart.updateOptions({ annotations: { xaxis: [{ x: infyData[20].x, borderColor:'#facc15', label:{text:'GAP UP', style:{color:'#fff', background:'#facc15'}} }] } });
+                break;
+            case '5': 
+                aiText.innerText = "Identifying Pattern...";
+                chart.zoomX(infyData[35].x, infyData[60].x);
+                chart.updateOptions({ annotations: { xaxis: [{ x: infyData[40].x, x2:infyData[50].x, borderColor:'#38bdf8', opacity:0.1, label:{text:'BULL FLAG', style:{color:'#fff', background:'#38bdf8'}} }] } });
+                break;
+            case '6': 
+                aiText.innerText = "Applying Indicators...";
+                chart.zoomX(infyData[0].x, infyData[84].x);
+                chart.updateSeries([{name:'Price', data:infyData}, {name:'Upper BB', data:upperBand}, {name:'Lower BB', data:lowerBand}]);
+                break;
+            case '7': 
+                aiText.innerText = "Drawing Trend...";
+                chart.updateOptions({ annotations: { xaxis: [{ x: infyData[10].x, x2:infyData[80].x, borderColor:'#38bdf8', borderWidth:3, label:{text:'UPTREND', style:{color:'#fff', background:'#38bdf8'}} }] } });
+                break;
+            case '8': 
+                aiText.innerText = "Analyzing Retest...";
+                chart.zoomX(infyData[60].x, infyData[70].x);
+                chart.updateOptions({ annotations: { points: [{ x: infyData[65].x, y: infyData[65].y[2], marker:{size:8, fillColor:'#fff', strokeColor:'#38bdf8'}, label:{text:'RETEST', style:{color:'#fff', background:'#38bdf8'}} }] } });
+                break;
+            case '9': 
+                aiText.innerText = "Checking Confluence...";
+                chart.zoomX(infyData[60].x, infyData[75].x);
+                chart.updateOptions({ annotations: { points: [{ x: infyData[65].x, y: infyData[65].y[2], marker:{size:8, fillColor:'#00E396'}, label:{text:'BUY SIGNAL', style:{color:'#fff', background:'#00E396'}} }] } });
+                break;
+            case '10': 
+                aiText.innerText = "Setting Stop Loss...";
+                chart.zoomX(infyData[60].x, infyData[75].x);
+                chart.updateOptions({ annotations: { yaxis: [{ y: infyData[65].y[2]-40, borderColor:'#FF4560', borderWidth:2, strokeDashArray:4, label:{text:'STOP LOSS', style:{color:'#fff', background:'#FF4560'}} }] } });
+                break;
+            case '11': 
+                aiText.innerText = "AI CONFIDENCE: 92%";
+                chart.zoomX(infyData[60].x, infyData[84].x);
+                chart.updateOptions({ annotations: { points: [{ x: infyData[80].x, y: infyData[80].y[1], marker:{size:8, fillColor:'#00E396'}, label:{text:'TARGET HIT', style:{color:'#fff', background:'#00E396'}} }] } });
+                break;
+        }
+    }
+  </script>
+</body>
+</html>

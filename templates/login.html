@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - AlphaFlow</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #020617; --accent: #38bdf8; --text: #e2e8f0;
+      --glass: rgba(15, 23, 42, 0.6); --border: rgba(148, 163, 184, 0.1);
+    }
+    
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: 'Inter', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; overflow: hidden; position: relative;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #bgCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.5; }
+    
+    .trail-cursor {
+      width: 300px; height: 300px; border-radius: 50%;
+      position: fixed; pointer-events: none;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15), transparent 70%);
+      z-index: 0; display: none;
+    }
+    @media (hover: hover) { .trail-cursor { display: block; } }
+
+    .glass-card {
+        width: 90%; max-width: 420px; padding: 2.5rem;
+        background: var(--glass); border: 1px solid var(--border);
+        border-radius: 24px; backdrop-filter: blur(24px);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        text-align: center; position: relative; z-index: 10;
+        opacity: 0; transform: translateY(30px);
+        animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+    
+    h1 { margin: 0 0 10px 0; color: #fff; font-size: 2rem; letter-spacing: -0.5px; }
+    p { color: #94a3b8; font-size: 0.95rem; margin-bottom: 30px; }
+    
+    .input-group { position: relative; margin-bottom: 20px; text-align: left; }
+    
+    input {
+        width: 100%; padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+        border-radius: 12px; color: #fff; outline: none; transition: 0.3s;
+        font-size: 1rem;
+    }
+    input:focus { border-color: var(--accent); background: rgba(56, 189, 248, 0.05); }
+    
+    label {
+        position: absolute; left: 16px; top: 16px; color: #94a3b8; font-size: 0.9rem;
+        pointer-events: none; transition: 0.3s;
+    }
+    input:focus ~ label, input:not(:placeholder-shown) ~ label {
+        top: -24px; left: 4px; font-size: 0.8rem; color: var(--accent); font-weight: 600;
+    }
+
+    .btn {
+        width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent), #2563eb);
+        color: #fff; border: none; border-radius: 12px; font-weight: 600; font-size: 1rem;
+        cursor: pointer; transition: 0.3s; margin-top: 10px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.5); }
+
+    .google-wrapper {
+        width: 100%; display: flex; justify-content: center; margin-bottom: 20px;
+    }
+    
+    .divider { display: flex; align-items: center; margin: 20px 0; color: #64748b; font-size: 0.8rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { padding: 0 10px; }
+
+    .link { font-size: 0.9rem; margin-top: 25px; display: block; color: #94a3b8; text-decoration: none; }
+    .link span { color: var(--accent); cursor: pointer; font-weight: 600; }
+    
+    .back { 
+        position: absolute; top: 30px; left: 30px; color: #94a3b8; 
+        text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;
+        transition: 0.3s; padding: 8px 16px; border-radius: 100px; border: 1px solid transparent; z-index: 20;
+    }
+    .back:hover { color: #fff; border-color: var(--border); background: rgba(255,255,255,0.05); }
+
+    .auth-loader {
+        position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9);
+        display: flex; justify-content: center; align-items: center; flex-direction: column;
+        border-radius: 24px; z-index: 20; display: none;
+    }
+    .spinner { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { 0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);} }
+  </style>
+</head>
+<body>
+
+  <div class="trail-cursor" id="cursor"></div>
+  <canvas id="bgCanvas"></canvas>
+  
+  <a href="/" class="back">← Back Home</a>
+  
+  <div class="glass-card">
+      <div class="auth-loader" id="loader"><div class="spinner"></div><span style="font-size:0.9rem;">Authenticating...</span></div>
+
+      <h1>Welcome Back</h1>
+      <p>Sign in to access AlphaFlow</p>
+
+      <!-- GOOGLE BUTTON -->
+      <div class="google-wrapper">
+          <div id="g_id_onload"
+               data-client_id="1035524552043-dltmu88kvl97pqoce4eqie1p2p8lmcbr.apps.googleusercontent.com"
+               data-context="signin"
+               data-ux_mode="popup"
+               data-callback="handleCredentialResponse"
+               data-auto_prompt="false">
+          </div>
+
+          <div class="g_id_signin"
+               data-type="standard"
+               data-shape="pill"
+               data-theme="filled_black"
+               data-text="continue_with"
+               data-size="large"
+               data-logo_alignment="left"
+               data-width="350">
+          </div>
+      </div>
+
+      <div class="divider"><span>OR</span></div>
+
+      <div class="input-group">
+          <input type="email" id="email" placeholder=" ">
+          <label for="email">Email Address</label>
+      </div>
+
+      <div class="input-group">
+          <input type="password" id="password" placeholder=" ">
+          <label for="password">Password</label>
+      </div>
+
+      <button class="btn" onclick="navigateToDashboard()">Log In</button>
+      
+      <a href="/signup" class="link">Don't have an account? <span>Sign Up</span></a>
+  </div>
+
+  <script>
+    function handleCredentialResponse(response) {
+        console.log("JWT ID Token: " + response.credential);
+        document.getElementById('loader').style.display = 'flex';
+        setTimeout(() => { navigateToDashboard(); }, 1000);
+    }
+
+    function navigateToDashboard() {
+        try { window.location.href = '/dashboard'; } catch (e) { console.log(e); }
+    }
+
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => { 
+        if(cursor) { cursor.style.top = e.clientY + 'px'; cursor.style.left = e.clientX + 'px'; } 
+    });
+
+    (function(){
+        const canvas = document.getElementById('bgCanvas'); const ctx = canvas.getContext('2d');
+        let w, h; function resize(){w=window.innerWidth;h=window.innerHeight;canvas.width=w;canvas.height=h;} 
+        window.addEventListener('resize',resize); resize();
+        
+        const particles = Array.from({length:50}, ()=>({
+            x:Math.random()*w, y:Math.random()*h, 
+            r:Math.random()*2, d:Math.random()*Math.PI*2, s:Math.random()*0.5+0.1
+        }));
+
+        function draw(){ 
+            ctx.clearRect(0,0,w,h); ctx.fillStyle='rgba(56,189,248,0.4)'; 
+            particles.forEach(p => {
+                p.x += Math.cos(p.d)*p.s; p.y += Math.sin(p.d)*p.s;
+                if(p.x<0) p.x=w; if(p.x>w) p.x=0; if(p.y<0) p.y=h; if(p.y>h) p.y=0;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+            });
+            requestAnimationFrame(draw);
+        } 
+        draw();
+    })();
+  </script>
+</body>
